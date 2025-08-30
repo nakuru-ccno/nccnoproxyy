@@ -14,8 +14,8 @@ const upload = multer({ dest: "uploads/" });
 app.use(cors());
 app.use(express.json());
 
-// Replace with your Apps Script URL
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec";
+// ✅ Your Apps Script Web App URL
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzRsBzxnTaH6VBJ-wqR4d9ej21W9ttO__1VBHDZIHl8mb-EdplrbgMwuaCSsJQc8tWYxA/exec";
 
 app.post("/upload-evidence", upload.array("files", 5), async (req, res) => {
   try {
@@ -33,7 +33,7 @@ app.post("/upload-evidence", upload.array("files", 5), async (req, res) => {
     form.append("category", category);
     form.append("subCounty", subCounty);
 
-    // ✅ Append all files with the SAME field name "files" and set contentType
+    // Append all files with the SAME field name "files"
     req.files.forEach((file, index) => {
       const fileName = req.files.length > 1
         ? `${evidenceName} – ${subCounty} (${index + 1}).pdf`
@@ -47,7 +47,16 @@ app.post("/upload-evidence", upload.array("files", 5), async (req, res) => {
 
     // Send request to Apps Script
     const response = await fetch(APPS_SCRIPT_URL, { method: "POST", body: form });
-    const result = await response.json();
+    const text = await response.text();
+
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch (e) {
+      console.error("Apps Script returned non-JSON:", text);
+      return res.status(500).json({ error: "Apps Script did not return JSON", raw: text });
+    }
+
     console.log("Apps Script response:", result);
 
     // Clean up temporary files
