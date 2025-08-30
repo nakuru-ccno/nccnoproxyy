@@ -16,14 +16,15 @@ app.use(cors());
 app.use(express.json());
 
 // Replace with your Apps Script URL
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxdToqCB5wDv_IA4xrcLZoxTsKc9xLHMdS35Fg52Cb_Ov2bs9ywO1TT90gLTTPE4-6Gwg/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz0LHXIPdNuS_f7huXNSj6N1FciO7YjACFw5t0XxlVQi-VlBhTdIsPXkClxrq3DaWXwkg/exec";
 
 app.post("/upload-evidence", upload.array("files", 5), async (req, res) => {
   try {
-    console.log("Files received:", req.files);
-    console.log("Request body:", req.body);
+    console.log("Received request body:", req.body);
+    console.log("Received files info:", req.files);
 
     const { evidenceName, category, subCounty } = req.body;
+
     if (!evidenceName || !category || !subCounty) {
       return res.status(400).json({ error: "Missing required fields" });
     }
@@ -32,30 +33,31 @@ app.post("/upload-evidence", upload.array("files", 5), async (req, res) => {
       return res.status(400).json({ error: "No files uploaded" });
     }
 
-    const appsScriptResponses = [];
+    // Prepare form-data to send to Apps Script
+    const form = new FormData();
+    form.append("evidenceName", evidenceName);
+    form.append("category", category);
+    form.append("subCounty", subCounty);
 
-    // Send each file to Apps Script
-    for (let file of req.files) {
-      const form = new FormData();
-      form.append("file", fs.createReadStream(file.path), file.originalname);
-      form.append("evidenceName", evidenceName);
-      form.append("category", category);
-      form.append("subCounty", subCounty);
-
-      const response = await fetch(APPS_SCRIPT_URL, { method: "POST", body: form });
-      const text = await response.text();
-      appsScriptResponses.push({ file: file.originalname, response: text });
-
-      // Delete local file after sending
-      fs.unlinkSync(file.path);
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Files uploaded successfully and email sent",
-      appsScriptResponses
+    // Append each file
+    req.files.forEach((file) => {
+      // Send file as Blob with original name
+      form.append("files", fs.createReadStream(file.path), file.originalname);
     });
 
+    // Send to Apps Script
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      body: form,
+    });
+
+    const text = await response.text();
+    console.log("Apps Script response:", text);
+
+    // Delete local files after sending
+    req.files.forEach((file) => fs.unlinkSync(file.path));
+
+    res.status(200).json({ message: "File(s) uploaded successfully", appsScriptResponse: JSON.parse(text) });
   } catch (err) {
     console.error("Error in /upload-evidence:", err);
     res.status(500).json({ error: err.message });
