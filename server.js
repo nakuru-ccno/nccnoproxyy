@@ -13,7 +13,7 @@ const upload = multer({ dest: "uploads/" });
 app.use(cors());
 app.use(express.json({ limit: "50mb" })); // JSON body
 
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbySOCxNBeVfonT6JUxtBx8oC3OWmnfq2YLlT4Ysz8KZsoUqsQ4zfjLIg-agLBvWE9pkwQ/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxPm2ppeGt-fkElDhtqH-mp57TPK0TXSnDibCmAX6mhWioqbtnrSZRLStVsMb6-HkJpOw/exec";
 
 app.post("/upload-evidence", upload.array("files", 5), async (req, res) => {
   try {
