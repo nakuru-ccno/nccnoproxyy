@@ -15,44 +15,49 @@ app.use(express.json({ limit: "50mb" })); // JSON body
 
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxPm2ppeGt-fkElDhtqH-mp57TPK0TXSnDibCmAX6mhWioqbtnrSZRLStVsMb6-HkJpOw/exec";
 
-app.post("/upload-evidence", upload.array("files", 5), (req, res) => {
-  const { evidenceName, category, subCounty } = req.body;
+// Health check endpoint for uptime monitors
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", message: "Proxy is running" });
+});
 
-  if (!evidenceName || !category || !subCounty || !req.files || req.files.length === 0) {
-    return res.status(400).json({ error: "Missing required fields or files" });
-  }
+app.post("/upload-evidence", upload.array("files", 5), async (req, res) => {
+  try {
+    const { evidenceName, category, subCounty } = req.body;
 
-  // Immediately respond to front-end
-  res.status(200).json({
-    message: "Upload started successfully",
-    uploadedFiles: req.files.map(f => `${evidenceName} – ${subCounty}.pdf`)
-  });
+    if (!evidenceName || !category || !subCounty || !req.files || req.files.length === 0) {
+      return res.status(400).json({ error: "Missing required fields or files" });
+    }
 
-  // Background processing
-  (async () => {
-    try {
-      const files = req.files.map(file => ({
-        name: file.originalname,
-        content: fs.readFileSync(file.path, { encoding: "base64" })
-      }));
+    // Convert files to base64
+    const files = req.files.map(file => {
+      const content = fs.readFileSync(file.path, { encoding: "base64" });
+      return { name: file.originalname, content };
+    });
 
-      // Send to Apps Script
-      const response = await fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        body: JSON.stringify({ evidenceName, category, subCounty, files }),
-        headers: { "Content-Type": "application/json" },
+    // Immediately respond to frontend before waiting for Apps Script
+    res.status(200).json({
+      message: "Upload request sent to proxy successfully",
+      uploadedFiles: files.map(f => f.name)
+    });
+
+    // Send JSON to Apps Script asynchronously (fire-and-forget)
+    fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({ evidenceName, category, subCounty, files }),
+      headers: { "Content-Type": "application/json" },
+    })
+      .then(response => response.json())
+      .then(result => console.log("Apps Script response:", result))
+      .catch(err => console.error("Error sending to Apps Script:", err))
+      .finally(() => {
+        // Cleanup temp files
+        req.files.forEach(file => fs.unlink(file.path, () => {}));
       });
 
-      const appsScriptResponse = await response.json();
-      console.log("Apps Script Response:", appsScriptResponse);
-
-      // Cleanup temp files
-      req.files.forEach(file => fs.unlinkSync(file.path));
-
-    } catch (err) {
-      console.error("Background processing failed:", err);
-    }
-  })();
+  } catch (err) {
+    console.error("Proxy error:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.listen(PORT, () => console.log(`Proxy running on port ${PORT}`));
