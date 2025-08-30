@@ -15,7 +15,7 @@ app.use(cors());
 app.use(express.json());
 
 // ✅ Updated Apps Script Web App URL
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx13genymzS-RsepSHCEnRLV5SRIXefsuxfxEhiIawIx94q67SATDcAteny2k4fHx16-Q/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbySOCxNBeVfonT6JUxtBx8oC3OWmnfq2YLlT4Ysz8KZsoUqsQ4zfjLIg-agLBvWE9pkwQ/exec";
 
 app.post("/upload-evidence", upload.array("files", 5), async (req, res) => {
   try {
