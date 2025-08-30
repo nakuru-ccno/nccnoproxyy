@@ -1,45 +1,53 @@
-import express from "express";
-import cors from "cors";
-import multer from "multer";
+// server.js
+import express from 'express';
+import cors from 'cors';
+import multer from 'multer';
+import fetch from 'node-fetch';
+import FormData from 'form-data';
 
 const app = express();
-const upload = multer(); // handles multipart/form-data
-
-// Allow all origins for testing (CORS)
+const upload = multer();
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Environment variables
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "example@gmail.com";
-const MAIN_FOLDER_ID = process.env.MAIN_FOLDER_ID || "dummy";
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxdToqCB5wDv_IA4xrcLZoxTsKc9xLHMdS35Fg52Cb_Ov2bs9ywO1TT90gLTTPE4-6Gwg/exec'; // <-- replace with your Apps Script deploy URL
 
-// Example POST endpoint for uploads
-app.post("/upload-evidence", upload.any(), (req, res) => {
+app.get('/', (req, res) => res.send('CCNO Proxy Running'));
+
+// Endpoint to receive frontend uploads
+app.post('/upload-evidence', upload.any(), async (req, res) => {
   try {
-    // For demo: log files and form data
-    const evidenceName = req.body.evidenceName;
-    const category = req.body.category;
-    const subCounty = req.body.subCounty;
+    const { evidenceName, category, subCounty } = req.body;
 
-    const files = req.files.map(f => ({
-      originalName: f.originalname,
-      size: f.size,
-      mimetype: f.mimetype,
-    }));
+    if (!evidenceName || !category || !subCounty) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
 
-    console.log({ evidenceName, category, subCounty, files });
+    // Build FormData to send to Apps Script
+    const formData = new FormData();
+    formData.append('evidenceName', evidenceName);
+    formData.append('category', category);
+    formData.append('subCounty', subCounty);
 
-    // TODO: Replace DriveApp/GmailApp with storage/email service
-    res.json({ success: true, message: "Files received", files });
+    if (req.files) {
+      req.files.forEach(file => {
+        formData.append('files', file.buffer, file.originalname);
+      });
+    }
+
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: formData
+    });
+
+    const result = await response.json();
+    res.json(result);
 
   } catch (err) {
+    console.error(err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// Health check
-app.get("/", (req, res) => res.send("CCNO Proxy Running"));
-
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`CCNO Proxy Running on port ${PORT}`));
+
