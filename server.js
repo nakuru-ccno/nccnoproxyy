@@ -1,50 +1,62 @@
+// server.js
 import express from "express";
 import cors from "cors";
 import multer from "multer";
-import fetch from "node-fetch"; // we installed this
+import fetch from "node-fetch";
 import FormData from "form-data";
+import fs from "fs";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 
-// Multer setup for file uploads
-const upload = multer({ storage: multer.memoryStorage() }); // store in memory before sending to Apps Script
-
+// Enable CORS
 app.use(cors());
 app.use(express.json());
 
-// Upload route
+// Configure Multer for file uploads
+const upload = multer({ dest: "uploads/" });
+
+// Your Apps Script URL
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxdToqCB5wDv_IA4xrcLZoxTsKc9xLHMdS35Fg52Cb_Ov2bs9ywO1TT90gLTTPE4-6Gwg/exec";
+
+// Upload endpoint
 app.post("/upload-evidence", upload.single("file"), async (req, res) => {
   try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
     const { evidenceName, category, subCounty } = req.body;
 
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-
-    // Prepare form-data for Apps Script
+    // Prepare FormData to send to Apps Script
     const form = new FormData();
-    form.append("file", req.file.buffer, req.file.originalname);
-    form.append("evidenceName", evidenceName);
-    form.append("category", category);
-    form.append("subCounty", subCounty);
+    form.append("file", fs.createReadStream(req.file.path), req.file.originalname);
+    form.append("evidenceName", evidenceName || "");
+    form.append("category", category || "");
+    form.append("subCounty", subCounty || "");
 
-    // Your Apps Script URL
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxdToqCB5wDv_IA4xrcLZoxTsKc9xLHMdS35Fg52Cb_Ov2bs9ywO1TT90gLTTPE4-6Gwg/exec";
-
+    // Send to Apps Script
     const response = await fetch(APPS_SCRIPT_URL, {
       method: "POST",
-      body: form,
+      body: form
     });
 
-    const result = await response.json();
-    return res.json({ status: "success", data: result });
+    const data = await response.text();
+
+    // Delete local file
+    fs.unlinkSync(req.file.path);
+
+    res.status(200).send(data);
   } catch (err) {
-    console.error("Upload error:", err);
-    return res.status(500).json({ status: "error", message: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
 app.get("/", (req, res) => {
-  res.send("NCCNO Proxy is live!");
+  res.send("NCCNO Proxy Server is running");
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
