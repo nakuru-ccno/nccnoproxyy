@@ -23,41 +23,41 @@ app.post("/upload-evidence", upload.array("files", 5), async (req, res) => {
     console.log("Received request body:", req.body);
     console.log("Received files info:", req.files);
 
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: "No files uploaded" });
+    }
+
     const { evidenceName, category, subCounty } = req.body;
 
     if (!evidenceName || !category || !subCounty) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ error: "No files uploaded" });
-    }
-
-    // Prepare form-data to send to Apps Script
     const form = new FormData();
     form.append("evidenceName", evidenceName);
     form.append("category", category);
     form.append("subCounty", subCounty);
 
-    // Append each file
-    req.files.forEach((file) => {
-      // Send file as Blob with original name
-      form.append("files", fs.createReadStream(file.path), file.originalname);
+    // Append each file and rename as <Evidence Name> – <Sub County>.pdf
+    req.files.forEach((file, index) => {
+      let fileName = `${evidenceName} – ${subCounty}.pdf`;
+      // Add a counter if multiple files to avoid overwrite
+      if (req.files.length > 1) {
+        fileName = `${evidenceName} – ${subCounty} (${index + 1}).pdf`;
+      }
+      form.append("files", fs.createReadStream(file.path), fileName);
     });
 
     // Send to Apps Script
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: "POST",
-      body: form,
-    });
-
+    const response = await fetch(APPS_SCRIPT_URL, { method: "POST", body: form });
     const text = await response.text();
     console.log("Apps Script response:", text);
 
-    // Delete local files after sending
+    // Clean up temporary files
     req.files.forEach((file) => fs.unlinkSync(file.path));
 
-    res.status(200).json({ message: "File(s) uploaded successfully", appsScriptResponse: JSON.parse(text) });
+    // Return success immediately (front-end does not wait for email)
+    res.status(200).json({ message: "Files uploaded successfully", appsScriptResponse: text });
   } catch (err) {
     console.error("Error in /upload-evidence:", err);
     res.status(500).json({ error: err.message });
