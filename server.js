@@ -15,50 +15,47 @@ const upload = multer({ dest: "uploads/" });
 app.use(cors());
 app.use(express.json());
 
-// Your Apps Script URL
+// Replace with your Apps Script URL
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxdToqCB5wDv_IA4xrcLZoxTsKc9xLHMdS35Fg52Cb_Ov2bs9ywO1TT90gLTTPE4-6Gwg/exec";
 
-// Accept file under ANY field name
-app.post("/upload-evidence", upload.any(), async (req, res) => {
+app.post("/upload-evidence", upload.array("files", 5), async (req, res) => {
   try {
-    console.log("Received req.body:", req.body);
-    console.log("Received req.files:", req.files);
-
-    // Pick first file (whatever key was used)
-    const file = req.files && req.files[0];
-    if (!file) {
-      return res.status(400).json({ error: "No file uploaded. Make sure 'file' is in form-data." });
-    }
+    console.log("Files received:", req.files);
+    console.log("Request body:", req.body);
 
     const { evidenceName, category, subCounty } = req.body;
-
-    const missingFields = [];
-    if (!evidenceName) missingFields.push("evidenceName");
-    if (!category) missingFields.push("category");
-    if (!subCounty) missingFields.push("subCounty");
-
-    if (missingFields.length > 0) {
-      return res.status(400).json({ error: "Missing required fields", fields: missingFields });
+    if (!evidenceName || !category || !subCounty) {
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Prepare form-data to send to Apps Script
-    const form = new FormData();
-    form.append("file", fs.createReadStream(file.path), file.originalname);
-    form.append("evidenceName", evidenceName);
-    form.append("category", category);
-    form.append("subCounty", subCounty);
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: "No files uploaded" });
+    }
 
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: "POST",
-      body: form,
+    const appsScriptResponses = [];
+
+    // Send each file to Apps Script
+    for (let file of req.files) {
+      const form = new FormData();
+      form.append("file", fs.createReadStream(file.path), file.originalname);
+      form.append("evidenceName", evidenceName);
+      form.append("category", category);
+      form.append("subCounty", subCounty);
+
+      const response = await fetch(APPS_SCRIPT_URL, { method: "POST", body: form });
+      const text = await response.text();
+      appsScriptResponses.push({ file: file.originalname, response: text });
+
+      // Delete local file after sending
+      fs.unlinkSync(file.path);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Files uploaded successfully and email sent",
+      appsScriptResponses
     });
 
-    const text = await response.text();
-    console.log("Apps Script response:", text);
-
-    fs.unlinkSync(file.path); // delete temp file
-
-    res.status(200).json({ message: "File uploaded successfully", appsScriptResponse: text });
   } catch (err) {
     console.error("Error in /upload-evidence:", err);
     res.status(500).json({ error: err.message });
