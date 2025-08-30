@@ -13,13 +13,15 @@ const upload = multer({ dest: "uploads/" });
 app.use(cors());
 app.use(express.json({ limit: "50mb" })); // JSON body
 
+// Replace with your Google Apps Script URL
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxPm2ppeGt-fkElDhtqH-mp57TPK0TXSnDibCmAX6mhWioqbtnrSZRLStVsMb6-HkJpOw/exec";
 
-// Health check endpoint for uptime monitors
+// Health check endpoint
 app.get("/health", (req, res) => {
   res.json({ status: "ok", message: "Proxy is running" });
 });
 
+// File upload endpoint
 app.post("/upload-evidence", upload.array("files", 5), async (req, res) => {
   try {
     const { evidenceName, category, subCounty } = req.body;
@@ -29,18 +31,18 @@ app.post("/upload-evidence", upload.array("files", 5), async (req, res) => {
     }
 
     // Convert files to base64
-    const files = req.files.map(file => {
-      const content = fs.readFileSync(file.path, { encoding: "base64" });
-      return { name: file.originalname, content };
-    });
+    const files = req.files.map(file => ({
+      name: `${evidenceName} – ${subCounty}.pdf`, // rename as requested
+      content: fs.readFileSync(file.path, { encoding: "base64" })
+    }));
 
-    // Immediately respond to frontend before waiting for Apps Script
+    // Immediately respond to frontend (fire-and-forget)
     res.status(200).json({
       message: "Upload request sent to proxy successfully",
       uploadedFiles: files.map(f => f.name)
     });
 
-    // Send JSON to Apps Script asynchronously (fire-and-forget)
+    // Send to Apps Script asynchronously
     fetch(APPS_SCRIPT_URL, {
       method: "POST",
       body: JSON.stringify({ evidenceName, category, subCounty, files }),
@@ -60,4 +62,43 @@ app.post("/upload-evidence", upload.array("files", 5), async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`Proxy running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Proxy running on port ${PORT}`);
+  startSelfPing(); // start ping loop when server starts
+});
+
+/**
+ * Self-ping loop to prevent Render free-tier from sleeping
+ * Active hours: 6 AM – 10 PM
+ * Ping interval: 14 minutes
+ */
+function startSelfPing() {
+  const PROXY_URL = `http://localhost:${PORT}/health`; // self-ping endpoint
+  const PING_INTERVAL_MIN = 14;
+  const ACTIVE_START_HOUR = 6;
+  const ACTIVE_END_HOUR = 22;
+
+  async function ping() {
+    const now = new Date();
+    const hour = now.getHours();
+
+    if (hour >= ACTIVE_START_HOUR && hour < ACTIVE_END_HOUR) {
+      try {
+        const res = await fetch(PROXY_URL);
+        if (res.ok) {
+          console.log(`[${now.toLocaleTimeString()}] Self-ping successful.`);
+        } else {
+          console.warn(`[${now.toLocaleTimeString()}] Self-ping failed: ${res.status}`);
+        }
+      } catch (err) {
+        console.error(`[${now.toLocaleTimeString()}] Self-ping error:`, err.message);
+      }
+    } else {
+      console.log(`[${now.toLocaleTimeString()}] Outside active hours. No ping.`);
+    }
+
+    setTimeout(ping, PING_INTERVAL_MIN * 60 * 1000);
+  }
+
+  ping();
+}
