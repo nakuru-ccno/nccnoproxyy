@@ -36,13 +36,13 @@ app.post("/upload-evidence", upload.array("files", 5), async (req, res) => {
       content: fs.readFileSync(file.path, { encoding: "base64" })
     }));
 
-    // Immediately respond to frontend (fire-and-forget)
+    // ✅ Immediately respond to frontend (don’t wait for Drive)
     res.status(200).json({
-      message: "Upload request sent to proxy successfully",
+      message: "✅ Upload received by proxy and is being processed in the background",
       uploadedFiles: files.map(f => f.name)
     });
 
-    // Send to Apps Script asynchronously
+    // 🔄 Continue sending to Apps Script asynchronously
     fetch(APPS_SCRIPT_URL, {
       method: "POST",
       body: JSON.stringify({ evidenceName, category, indicator, subCounty, files }),
