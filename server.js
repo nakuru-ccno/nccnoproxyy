@@ -14,7 +14,7 @@ app.use(cors());
 app.use(express.json({ limit: "50mb" })); // JSON body
 
 // Replace with your Google Apps Script URL
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxPm2ppeGt-fkElDhtqH-mp57TPK0TXSnDibCmAX6mhWioqbtnrSZRLStVsMb6-HkJpOw/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyRvzMkB24HLf2sDeCBusT7oB9QvFmf3j7_C4awO33mxqL07aBlmChd74ot7N-ixd4bqA/exec";
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -24,9 +24,9 @@ app.get("/health", (req, res) => {
 // File upload endpoint
 app.post("/upload-evidence", upload.array("files", 5), async (req, res) => {
   try {
-    const { evidenceName, category, subCounty } = req.body;
+    const { evidenceName, category, indicator, subCounty } = req.body;
 
-    if (!evidenceName || !category || !subCounty || !req.files || req.files.length === 0) {
+    if (!evidenceName || !category || !indicator || !subCounty || !req.files || req.files.length === 0) {
       return res.status(400).json({ error: "Missing required fields or files" });
     }
 
@@ -45,7 +45,7 @@ app.post("/upload-evidence", upload.array("files", 5), async (req, res) => {
     // Send to Apps Script asynchronously
     fetch(APPS_SCRIPT_URL, {
       method: "POST",
-      body: JSON.stringify({ evidenceName, category, subCounty, files }),
+      body: JSON.stringify({ evidenceName, category, indicator, subCounty, files }),
       headers: { "Content-Type": "application/json" },
     })
       .then(response => response.json())
