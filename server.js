@@ -14,7 +14,7 @@ app.use(cors());
 app.use(express.json({ limit: "50mb" })); // JSON body
 
 // Replace with your Google Apps Script URL
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyTh6w5_3gp4tYP4S-FmFIk8LEkE58JEe9b5ni2Jxdhtjy7BBvSoF3HbvzZCCqC29kIhA/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx3KXEFXmzInpisirjM1-OOjAMde8LKESFVHt21bOR7wYAp6SFU0TchAUse89z_0B-eHg/exec";
 
 // Health check endpoint
 app.get("/health", (req, res) => {
