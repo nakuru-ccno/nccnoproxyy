@@ -13,7 +13,7 @@ const upload = multer({ dest: "uploads/" });
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbygcDNQ4ZhE9AWjlRgwVqwqmkZqXiSxUZEGsqPqCcV3nc1bC6PQfA2_RZ7l5oDBnYl4/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzSuoZjVltwooeBe4m96vXg0FmMRLOU5mgIroQ5Pp9_J7YKrjrFozyalVL--KFTF0WM/exec";
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
